@@ -1,31 +1,67 @@
 # 文档阅读器 MCP 服务器
 
-一个支持多种文档格式的 Model Context Protocol (MCP) 服务器，可以读取 Wor功能。
+一个支持多种文档格式的 Model Context Protocol (MCP) 服务器，可以读取 Word、PDF、文本文件、RTF 等格式，并提供图片提取与分析功能。
 
-## ✨ 核心功能
+## 🚀 快速开始
 
-- **多格式文档读取**: 支持 Word、PDF、文本文件、RTF 等格式
-- **图片提取与分析**: 自动提取文档中的图片并进行结构分析
-- **图表内容理解**: 基于 OpenCV 分析流程图、架构图等技术图表
-- **媒体信息提取**: 提取文档中的图片和链接信息
-内容的综合分析
-
-
-
+### 1. 安装依赖
 
 ```bash
-python instalps.py
+# 方式1：使用安装脚本（推荐）
+python install_deps.py
+
+# 方式2：手动安装
+pip install -r requirements.txt
 ```
 
-动服务器
+### 2. 启动服务器
+
 ```bash
 python server.py
 ```
 
-图表分析
-```bash
-python simple_di
+### 3. 配置 Kiro IDE
+
+在 Kiro IDE 中创建或编辑 `.kiro/settings/mcp.json` 文件：
+
+```json
+{
+  "mcpServers": {
+    "document-reader": {
+      "command": "python",
+      "args": ["server.py"],
+      "cwd": "D:\\your-path\\document-reader-mcp",
+      "env": {
+        "PYTHONIOENCODING": "utf-8"
+      },
+      "disabled": false,
+      "autoApprove": [
+        "list_supported_formats",
+        "get_document_info"
+      ]
+    }
+  }
+}
 ```
+
+### 4. 测试功能
+
+```bash
+# 测试图表分析
+python simple_diagram_reader.py
+
+# 测试核心功能
+python test_core_features.py
+```
+
+## ✨ 核心功能
+
+- **多格式文档读取**: 支持 Word (.docx)、PDF、文本文件、RTF 等格式
+- **图片提取与分析**: 自动提取文档中的图片并进行结构分析
+- **图表内容理解**: 基于 OpenCV 分析流程图、架构图等技术图表
+- **媒体信息提取**: 提取文档中的图片和链接信息
+- **链接验证**: 自动检查文档中链接的有效性
+- **页面范围选择**: PDF 文档支持指定页面范围读取
 
 ## 🛠️ MCP 工具
 
