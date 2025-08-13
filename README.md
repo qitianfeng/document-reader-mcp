@@ -1,104 +1,104 @@
 # 文档阅读器 MCP 服务器
 
-一个强大的 Model Context Protocol (MCP) 服务器，用于读取和处理各种文档格式。
+一个支持多种文档格式的 Model Context Protocol (MCP) 服务器，可以读取 Wor功能。
 
-## 支持的文档格式
+## ✨ 核心功能
 
-- **Word文档** (.docx) - 需要 `python-docx` 库
-- **PDF文档** (.pdf) - 需要 `PyPDF2` 库
-- **纯文本文件** (.txt, .md, .py, .js, .html, .css等)
-- **RTF文档** (.rtf) - 需要 `striprtf` 库
+- **多格式文档读取**: 支持 Word、PDF、文本文件、RTF 等格式
+- **图片提取与分析**: 自动提取文档中的图片并进行结构分析
+- **图表内容理解**: 基于 OpenCV 分析流程图、架构图等技术图表
+- **媒体信息提取**: 提取文档中的图片和链接信息
+内容的综合分析
 
-## 功能特性
 
-### 🔧 可用工具
 
-1. **read_document** - 读取文档内容
-   - 支持多种文档格式
-   - PDF支持页面范围选择
-   - 自动检测文本编码
-
-2. **get_document_info** - 获取文档信息
-   - 文件大小、格式、路径
-   - Word文档段落数
-   - PDF文档页数
-
-3. **list_supported_formats** - 列出支持的格式
-   - 显示当前可用的文档类型
-   - 标明依赖库安装状态
-
-4. **extract_document_media** - 提取媒体信息 🆕
-   - 从Word文档中提取图片信息
-   - 提取文档中的链接并验证有效性
-   - 支持保存图片到本地
-   - 提供详细的媒体统计信息
-
-5. **read_document_with_media** - 增强文档阅读 🆕
-   - 读取文档内容并包含媒体元素信息
-   - 支持所有文档格式的链接提取
-   - Word文档支持图片和链接信息
-   - 可选择是否包含媒体信息
-
-## 安装
-
-### 方法1: 使用 uvx (推荐)
 
 ```bash
-# 直接运行，无需安装
-uvx document-reader-mcp
+python instalps.py
 ```
 
-### 方法2: 手动安装
-
+动服务器
 ```bash
-# 克隆或下载项目
-git clone <repository-url>
-cd document-reader-mcp
-
-# 安装依赖
-pip install -r requirements.txt
-
-# 运行服务器
 python server.py
 ```
 
-## MCP 配置
-
-### 在 Kiro IDE 中配置
-
-1. **创建或编辑配置文件**：`.kiro/settings/mcp.json`
-
-2. **添加服务器配置**：
-
-```json
-{
-  "mcpServers": {
-    "document-reader": {
-      "command": "python",
-      "args": ["server.py"],
-      "cwd": "你的项目路径/document-reader-mcp",
-      "env": {
-        "PYTHONIOENCODING": "utf-8"
-      },
-      "disabled": false,
-      "autoApprove": [
-        "list_supported_formats",
-        "get_document_info"
-      ]
-    }
-  }
-}
+图表分析
+```bash
+python simple_di
 ```
 
-### 使用 uvx 配置（推荐）
+## 🛠️ MCP 工具
 
-```json
-{
-  "mcpServers": {
-    "document-reader": {
-      "command": "uvx",
-      "args": ["document-reader-mcp"],
-      "env": {
+### `read_document_
+增强阅读文档，同时提取文字和图片内容
+- `file_path`: 文
+息
+
+### `extract_documen`
+提取文档中的图片和链接
+- `file_path`: 文档路径
+- `save_images`: 是否保存图片到本地
+
+### `
+无需复杂配置
+- `image_path`: 图片路径
+
+## 📊 图表分析能力
+
+- **结构识别**: 检测矩形、圆形、线条等形元素
+- *构图、网络图等
+特征
+- **技术理解**: 基
+
+## 💡 使用场景
+
+### 增强文档阅读
+```
+cx
+```
+自动提取文字内容和所有图片，并进行结构分析。
+
+### 开发时
+当 AI-Agent 需要理解业
+```
+ 文件夹
+analyze_s")
+
+
+结构
+
+```
+├── server.py  主程序
+析核心模块
+├── ins 依赖安装脚本
+├hon 依赖列表
+└── extracted_ima
+```
+
+## 🔧 依赖说明
+
+**核心依赖**:
+- `mcp`: MCP 协议框架
+- `pytho
+- `PyPDF2`: PDF 文档处理
+- `opencv-python`: 图像分析
+- `numpy`: 数值计算
+
+**可选依赖*
+- `st
+- `
+
+## 设计理念
+
+这个项目专注于**实用性**和***：
+ OCR 配置
+- 基于图像结构分析理解图表
+-传
+- 为 AI-Agent 开发提供
+
+## 📄 许可证
+
+MIT License: {
         "FASTMCP_LOG_LEVEL": "ERROR"
       },
       "disabled": false,

@@ -51,13 +51,7 @@ try:
 except ImportError:
     REQUESTS_AVAILABLE = False
 
-# OCR和图像分析库
-try:
-    import pytesseract
-    OCR_AVAILABLE = True
-except ImportError:
-    OCR_AVAILABLE = False
-
+# 图像分析库
 try:
     import cv2
     import numpy as np
@@ -65,11 +59,12 @@ try:
 except ImportError:
     OPENCV_AVAILABLE = False
 
+# 导入简单图表阅读器
 try:
-    import easyocr
-    EASYOCR_AVAILABLE = True
+    from simple_diagram_reader import SimpleDiagramReader, analyze_single_image
+    SIMPLE_DIAGRAM_READER_AVAILABLE = True
 except ImportError:
-    EASYOCR_AVAILABLE = False
+    SIMPLE_DIAGRAM_READER_AVAILABLE = False
 
 # 创建服务器实例
 server = Server("document-reader")
@@ -171,6 +166,21 @@ async def handle_list_tools() -> List[types.Tool]:
                 },
                 "required": ["file_path"]
             }
+        ),
+
+        types.Tool(
+            name="read_diagram_content",
+            description="直接读取图表内容，无需复杂OCR配置，基于图像结构分析理解图表",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "image_path": {
+                        "type": "string",
+                        "description": "图片文件的路径"
+                    }
+                },
+                "required": ["image_path"]
+            }
         )
     ]
     return tools
@@ -252,9 +262,13 @@ def read_rtf_file(file_path: str) -> str:
         return rtf_to_text(rtf_content)
 
 def analyze_flowchart_image_from_bytes(image_bytes: bytes) -> dict:
-    """分析流程图图片，提取文字和简单结构信息"""
+    """分析流程图图片，基于OpenCV的基础结构分析"""
     result = {"text": "", "nodes": 0, "edges": 0}
     try:
+        if not OPENCV_AVAILABLE:
+            result["error"] = "OpenCV不可用"
+            return result
+            
         # 读取图片
         import io
         file_bytes = np.asarray(bytearray(image_bytes), dtype=np.uint8)
@@ -262,23 +276,72 @@ def analyze_flowchart_image_from_bytes(image_bytes: bytes) -> dict:
         if img is None:
             result["error"] = "无法读取图片"
             return result
-        # OCR识别文字
-        result["text"] = pytesseract.image_to_string(img, lang='chi_sim')
+            
         # 灰度处理
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         # 边缘检测
         edges = cv2.Canny(gray, 50, 150, apertureSize=3)
+        
         # 检测圆形节点
         circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, dp=1, minDist=40, param1=50, param2=30, minRadius=10, maxRadius=80)
         if circles is not None:
             result["nodes"] = len(circles[0])
+            
         # 检测直线（连线）
         lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=80, minLineLength=40, maxLineGap=10)
         if lines is not None:
             result["edges"] = len(lines)
+            
     except Exception as e:
         result["error"] = f"流程图解析失败: {str(e)}"
     return result
+
+def format_simple_diagram_result(result: Dict[str, Any]) -> str:
+    """格式化简单图表分析结果"""
+    if "error" in result:
+        return f"分析失败: {result['error']}"
+    
+    result_text = "=== 图表内容分析 ===\n\n"
+    
+    # 文件信息
+    if "file_info" in result:
+        info = result["file_info"]
+        result_text += f"📊 文件信息:\n"
+        result_text += f"- 文件名: {info.get('filename', '未知')}\n"
+        result_text += f"- 尺寸: {info.get('dimensions', '未知')}\n"
+        result_text += f"- 大小: {info.get('size', '未知')}\n\n"
+    
+    # 图表解释
+    if "interpretation" in result:
+        interp = result["interpretation"]
+        result_text += f"🎯 图表类型: {interp.get('predicted_type', '未知')}\n"
+        result_text += f"📈 置信度: {interp.get('confidence', 0):.1%}\n\n"
+        result_text += f"📝 内容描述:\n{interp.get('content_description', '无描述')}\n\n"
+        
+        tech_elements = interp.get('technical_elements', [])
+        if tech_elements:
+            result_text += f"🔧 技术元素: {', '.join(tech_elements)}\n\n"
+    
+    # 结构分析
+    if "analysis" in result:
+        analysis = result["analysis"]
+        shapes = analysis.get("shapes", {})
+        result_text += f"🏗️ 结构分析:\n"
+        result_text += f"- 矩形框: {shapes.get('rectangles', 0)} 个\n"
+        result_text += f"- 圆形: {shapes.get('circles', 0)} 个\n"
+        result_text += f"- 连接线: {shapes.get('lines', 0)} 条\n"
+        result_text += f"- 复杂度评分: {analysis.get('complexity', 0)}\n"
+        result_text += f"- 主要方向: {analysis.get('dominant_direction', '未知')}\n\n"
+        
+        layout = analysis.get("layout", {})
+        if layout:
+            result_text += f"📐 布局特征:\n"
+            result_text += f"- 宽高比: {layout.get('aspect_ratio', 0):.2f}\n"
+            result_text += f"- 方向: {layout.get('primary_orientation', '未知')}\n"
+    
+    return result_text
+
+
 
 def extract_docx_media(file_path: str, extract_images: bool = True, extract_links: bool = True, save_images: bool = False) -> Dict[str, Any]:
     """从Word文档中提取图片和链接信息"""
@@ -711,6 +774,63 @@ async def handle_call_tool(
             return [types.TextContent(
                 type="text",
                 text=f"提取媒体信息时出错: {str(e)}"
+            )]
+
+
+
+    elif name == "read_diagram_content":
+        image_path = arguments.get("image_path")
+
+        if not image_path:
+            return [types.TextContent(
+                type="text",
+                text="错误：必须提供图片路径"
+            )]
+
+        try:
+            path = Path(image_path)
+
+            if not path.exists():
+                return [types.TextContent(
+                    type="text",
+                    text=f"错误：图片文件不存在 - {image_path}"
+                )]
+
+            # 检查是否为图片文件
+            image_extensions = ['.png', '.jpg', '.jpeg', '.bmp', '.tiff', '.gif', '.emf', '.wmf']
+            if path.suffix.lower() not in image_extensions:
+                return [types.TextContent(
+                    type="text",
+                    text=f"错误：不支持的图片格式 - {path.suffix}"
+                )]
+
+            # 使用简单图表阅读器
+            if SIMPLE_DIAGRAM_READER_AVAILABLE:
+                result = analyze_single_image(image_path)
+                
+                if "error" in result:
+                    return [types.TextContent(
+                        type="text",
+                        text=f"图表分析失败: {result['error']}"
+                    )]
+                
+                # 格式化结果
+                formatted_result = format_simple_diagram_result(result)
+                
+                return [types.TextContent(
+                    type="text",
+                    text=formatted_result
+                )]
+            else:
+                return [types.TextContent(
+                    type="text",
+                    text="错误：简单图表阅读器不可用"
+                )]
+
+        except Exception as e:
+            return [types.TextContent(
+                type="text",
+                text=f"读取图表内容时出错: {str(e)}"
             )]
 
     elif name == "read_document_with_media":
