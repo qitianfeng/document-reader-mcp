@@ -24,6 +24,7 @@ python server.py
 
 在 Kiro IDE 中创建或编辑 `.kiro/settings/mcp.json` 文件：
 
+**方式1：简化配置（推荐）**
 ```json
 {
   "mcpServers": {
@@ -37,12 +38,44 @@ python server.py
       "disabled": false,
       "autoApprove": [
         "list_supported_formats",
-        "get_document_info"
+        "get_document_info",
+        "read_document",
+        "read_document_with_media"
       ]
     }
   }
 }
 ```
+
+**方式2：完整路径配置**
+```json
+{
+  "mcpServers": {
+    "document-reader": {
+      "command": "python",
+      "args": ["D:\\devolp\\code1\\document-reader-mcp-master\\document-reader-mcp\\server.py"],
+      "cwd": "D:\\devolp\\code1\\document-reader-mcp-master\\document-reader-mcp",
+      "env": {
+        "PYTHONPATH": "D:\\devolp\\code1\\document-reader-mcp-master\\document-reader-mcp",
+        "PYTHONIOENCODING": "utf-8"
+      },
+      "disabled": false,
+      "autoApprove": [
+        "list_supported_formats",
+        "get_document_info",
+        "read_document",
+        "read_document_with_media"
+      ]
+    }
+  }
+}
+```
+
+**配置说明：**
+- `cwd`: 项目根目录路径
+- `PYTHONPATH`: 确保模块导入正常（方式2需要）
+- `PYTHONIOENCODING`: 确保中文字符正确显示
+- `autoApprove`: 自动批准的安全工具列表，减少确认步骤
 
 ### 4. 测试功能
 
