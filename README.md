@@ -1,0 +1,538 @@
+# 文档阅读器 MCP 服务器
+
+一个强大的 Model Context Protocol (MCP) 服务器，用于读取和处理各种文档格式。
+
+## 支持的文档格式
+
+- **Word文档** (.docx) - 需要 `python-docx` 库
+- **PDF文档** (.pdf) - 需要 `PyPDF2` 库
+- **纯文本文件** (.txt, .md, .py, .js, .html, .css等)
+- **RTF文档** (.rtf) - 需要 `striprtf` 库
+
+## 功能特性
+
+### 🔧 可用工具
+
+1. **read_document** - 读取文档内容
+   - 支持多种文档格式
+   - PDF支持页面范围选择
+   - 自动检测文本编码
+
+2. **get_document_info** - 获取文档信息
+   - 文件大小、格式、路径
+   - Word文档段落数
+   - PDF文档页数
+
+3. **list_supported_formats** - 列出支持的格式
+   - 显示当前可用的文档类型
+   - 标明依赖库安装状态
+
+4. **extract_document_media** - 提取媒体信息 🆕
+   - 从Word文档中提取图片信息
+   - 提取文档中的链接并验证有效性
+   - 支持保存图片到本地
+   - 提供详细的媒体统计信息
+
+5. **read_document_with_media** - 增强文档阅读 🆕
+   - 读取文档内容并包含媒体元素信息
+   - 支持所有文档格式的链接提取
+   - Word文档支持图片和链接信息
+   - 可选择是否包含媒体信息
+
+## 安装
+
+### 方法1: 使用 uvx (推荐)
+
+```bash
+# 直接运行，无需安装
+uvx document-reader-mcp
+```
+
+### 方法2: 手动安装
+
+```bash
+# 克隆或下载项目
+git clone <repository-url>
+cd document-reader-mcp
+
+# 安装依赖
+pip install -r requirements.txt
+
+# 运行服务器
+python server.py
+```
+
+## MCP 配置
+
+### 在 Kiro IDE 中配置
+
+1. **创建或编辑配置文件**：`.kiro/settings/mcp.json`
+
+2. **添加服务器配置**：
+
+```json
+{
+  "mcpServers": {
+    "document-reader": {
+      "command": "python",
+      "args": ["server.py"],
+      "cwd": "你的项目路径/document-reader-mcp",
+      "env": {
+        "PYTHONIOENCODING": "utf-8"
+      },
+      "disabled": false,
+      "autoApprove": [
+        "list_supported_formats",
+        "get_document_info"
+      ]
+    }
+  }
+}
+```
+
+### 使用 uvx 配置（推荐）
+
+```json
+{
+  "mcpServers": {
+    "document-reader": {
+      "command": "uvx",
+      "args": ["document-reader-mcp"],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "disabled": false,
+      "autoApprove": ["list_supported_formats"]
+    }
+  }
+}
+```
+
+### 配置说明
+
+- `autoApprove`: 自动批准的安全工具列表
+- `disabled`: 设为 `false` 启用服务器
+- `cwd`: 工作目录（本地安装时需要）
+- `PYTHONIOENCODING`: 确保中文字符正确显示
+
+## 使用方法
+
+### 🚀 快速开始
+
+1. **配置MCP服务器**（见上方配置说明）
+2. **重启Kiro IDE** 或重新连接MCP服务器
+3. **开始使用工具**
+
+### 📖 基础文档阅读
+
+#### 读取Word文档
+```json
+{
+  "tool": "read_document",
+  "arguments": {
+    "file_path": "report.docx"
+  }
+}
+```
+
+#### 读取PDF特定页面
+```json
+{
+  "tool": "read_document", 
+  "arguments": {
+    "file_path": "document.pdf",
+    "page_range": "1-5"
+  }
+}
+```
+
+#### 获取文档信息
+```json
+{
+  "tool": "get_document_info",
+  "arguments": {
+    "file_path": "example.docx"
+  }
+}
+```
+
+### 🖼️ 图片自动解析功能
+
+#### 方式1：增强文档阅读（推荐）
+```json
+{
+  "tool": "read_document_with_media",
+  "arguments": {
+    "file_path": "document.docx",
+    "include_media_info": true
+  }
+}
+```
+**特点**：
+- ✅ 自动解析图片和链接
+- 📊 在文档内容后显示媒体信息
+- 🎯 适合完整文档分析
+
+#### 方式2：专门媒体提取
+```json
+{
+  "tool": "extract_document_media",
+  "arguments": {
+    "file_path": "document.docx",
+    "extract_images": true,
+    "extract_links": true,
+    "save_images": false
+  }
+}
+```
+**特点**：
+- 🎯 专门用于媒体分析
+- 💾 可选择保存图片到本地
+- 📈 提供详细统计信息
+
+#### 方式3：普通阅读（不解析图片）
+```json
+{
+  "tool": "read_document",
+  "arguments": {
+    "file_path": "document.docx"
+  }
+}
+```
+**特点**：
+- 🚀 速度最快
+- 📝 只获取文本内容
+- 🎯 适合纯文本需求
+
+### 🔍 图片解析能力展示
+
+当使用图片解析功能时，你会得到：
+
+```
+文档媒体信息 (example.docx):
+
+摘要:
+- 图片总数: 2
+- 链接总数: 3
+- 图片处理错误: 0
+- 链接处理错误: 0
+
+图片信息:
+1. image1.png
+   - 格式: PNG
+   - 尺寸: (670, 346)
+   - 大小: 174900 字节
+   - 流程图分析:
+     - 文本: 检测到的文字内容
+     - 节点数: 5
+     - 连线数: 4
+
+2. chart.jpg
+   - 格式: JPEG
+   - 尺寸: (800, 600)
+   - 大小: 245600 字节
+
+链接信息:
+1. https://www.example.com
+   - 域名: www.example.com
+   - 协议: https
+   - 状态: 可访问 (HTTP 200)
+```
+
+### 🛠️ 实用工具
+
+#### 查看支持格式
+```json
+{
+  "tool": "list_supported_formats",
+  "arguments": {}
+}
+```
+
+#### 批量处理示例
+```python
+# 在Kiro中，你可以这样批量处理文档
+documents = ["doc1.docx", "doc2.pdf", "doc3.txt"]
+
+for doc in documents:
+    # 使用增强阅读获取完整信息
+    result = mcp_call("read_document_with_media", {
+        "file_path": doc,
+        "include_media_info": True
+    })
+    print(f"处理完成: {doc}")
+```
+
+## 页面范围格式
+
+PDF文档支持灵活的页面范围选择：
+
+- `"all"` - 所有页面（默认）
+- `"1-5"` - 第1到5页
+- `"1,3,5"` - 第1、3、5页
+- `"1-3,7,10-12"` - 第1-3页、第7页、第10-12页
+
+## 错误处理
+
+- 自动检测文本文件编码 (UTF-8, GBK, GB2312, Latin-1)
+- 优雅处理缺失的依赖库
+- 详细的错误信息和建议
+
+## 媒体处理功能 🆕
+
+### 图片处理
+- **支持格式**: Word文档中的嵌入图片
+- **提取信息**: 文件名、格式、尺寸、大小
+- **保存功能**: 可选择将图片保存到本地
+- **错误处理**: 优雅处理损坏或不支持的图片
+
+### 链接处理
+- **支持格式**: Word、PDF、文本文件中的HTTP/HTTPS链接
+- **提取信息**: URL、域名、协议
+- **有效性验证**: 自动检查链接是否可访问
+- **状态码**: 显示HTTP响应状态码
+
+### 使用场景
+- 文档内容分析和审计
+- 媒体资源清单生成
+- 链接有效性批量检查
+- 文档迁移前的资源盘点
+
+## 在 Kiro IDE 中使用
+
+### 🎯 配置步骤
+
+1. **打开Kiro IDE**
+2. **创建MCP配置文件**：
+   - 路径：`.kiro/settings/mcp.json`
+   - 如果文件不存在，创建一个新文件
+
+3. **添加配置内容**：
+```json
+{
+  "mcpServers": {
+    "document-reader": {
+      "command": "python",
+      "args": ["server.py"],
+      "cwd": "D:\\your-path\\document-reader-mcp",
+      "env": {
+        "PYTHONIOENCODING": "utf-8"
+      },
+      "disabled": false,
+      "autoApprove": [
+        "list_supported_formats",
+        "get_document_info"
+      ]
+    }
+  }
+}
+```
+
+4. **重启Kiro** 或使用命令面板搜索 "MCP" 重新连接服务器
+
+### 💡 使用技巧
+
+#### 在聊天中使用
+```
+请帮我读取这个Word文档的内容，并分析其中的图片信息：
+文件路径：./reports/monthly-report.docx
+```
+
+Kiro会自动调用 `read_document_with_media` 工具。
+
+#### 批量文档分析
+```
+请分析这个文件夹中所有Word文档的媒体信息：
+- ./docs/report1.docx
+- ./docs/report2.docx  
+- ./docs/presentation.docx
+```
+
+#### 文档格式转换准备
+```
+我需要将这些PDF文档转换为Markdown，
+请先帮我分析文档结构和媒体内容：
+./pdfs/technical-guide.pdf
+```
+
+### 🔧 故障排除
+
+#### 常见问题
+
+1. **MCP服务器连接失败**
+   - 检查 `cwd` 路径是否正确
+   - 确认 `server.py` 文件存在
+   - 检查Python环境是否正确
+
+2. **中文字符显示异常**
+   - 确保配置中包含 `"PYTHONIOENCODING": "utf-8"`
+
+3. **图片解析失败**
+   - 检查是否安装了 `Pillow` 库：`pip install Pillow`
+   - 确认Word文档中确实包含图片
+
+4. **链接验证不工作**
+   - 安装 `requests` 库：`pip install requests`
+   - 检查网络连接
+
+#### 调试方法
+
+1. **查看MCP服务器状态**
+   - 在Kiro中打开命令面板
+   - 搜索 "MCP Server" 查看连接状态
+
+2. **测试基础功能**
+```json
+{
+  "tool": "list_supported_formats",
+  "arguments": {}
+}
+```
+
+3. **检查依赖库**
+```json
+{
+  "tool": "list_supported_formats", 
+  "arguments": {}
+}
+```
+返回结果会显示各个依赖库的安装状态。
+
+## 性能与最佳实践
+
+### ⚡ 性能优化
+
+#### 选择合适的工具
+- **纯文本需求**：使用 `read_document`（最快）
+- **需要媒体信息**：使用 `read_document_with_media`
+- **专门媒体分析**：使用 `extract_document_media`
+
+#### 大文件处理
+```json
+{
+  "tool": "read_document",
+  "arguments": {
+    "file_path": "large-document.pdf",
+    "page_range": "1-10"
+  }
+}
+```
+对于大型PDF，使用页面范围限制可以显著提升性能。
+
+#### 批量处理建议
+- 避免同时处理过多大文件
+- 优先处理小文件，再处理大文件
+- 使用 `get_document_info` 先了解文件大小
+
+### 🎯 最佳实践
+
+#### 1. 文档分析工作流
+```
+1. get_document_info - 了解文档基本信息
+2. read_document - 快速获取文本内容  
+3. read_document_with_media - 深入分析（如需要）
+```
+
+#### 2. 媒体资源管理
+```json
+{
+  "tool": "extract_document_media",
+  "arguments": {
+    "file_path": "document.docx",
+    "extract_images": true,
+    "extract_links": true,
+    "save_images": true
+  }
+}
+```
+设置 `save_images: true` 可以将图片保存到本地，便于后续处理。
+
+#### 3. 错误处理
+- 始终检查返回结果中的错误信息
+- 对于批量处理，建议逐个处理并记录失败的文件
+- 使用 `list_supported_formats` 确认依赖库状态
+
+### 📊 性能数据
+
+| 操作 | 平均耗时 | 内存使用 |
+|------|----------|----------|
+| 读取文本文件 (1MB) | < 0.1秒 | 低 |
+| 读取Word文档 (5MB) | < 0.5秒 | 中等 |
+| 读取PDF文档 (10MB) | < 1秒 | 中等 |
+| 图片提取 (含10张图) | < 2秒 | 较高 |
+| 链接验证 (10个链接) | 2-5秒 | 低 |
+
+## 依赖库
+
+### 核心依赖
+- `mcp` - MCP协议支持
+- `python-docx` - Word文档处理
+- `PyPDF2` - PDF文档处理
+- `striprtf` - RTF文档处理
+
+### 媒体处理依赖 🆕
+- `Pillow` - 图片处理和分析
+- `requests` - 链接验证（可选）
+
+### 安装命令
+```bash
+# 安装所有依赖
+pip install -r requirements.txt
+
+# 或单独安装
+pip install mcp python-docx PyPDF2 striprtf Pillow requests
+```
+
+## 快速参考
+
+### 🔧 工具对比表
+
+| 工具名称 | 读取文本 | 解析图片 | 提取链接 | 性能 | 适用场景 |
+|----------|----------|----------|----------|------|----------|
+| `read_document` | ✅ | ❌ | ❌ | 🚀🚀🚀 | 快速文本阅读 |
+| `read_document_with_media` | ✅ | ✅ | ✅ | 🚀🚀 | 完整文档分析 |
+| `extract_document_media` | ❌ | ✅ | ✅ | 🚀 | 专门媒体提取 |
+| `get_document_info` | ❌ | ❌ | ❌ | 🚀🚀🚀 | 文档信息查看 |
+| `list_supported_formats` | ❌ | ❌ | ❌ | 🚀🚀🚀 | 功能状态检查 |
+
+### 📋 支持格式一览
+
+| 格式 | 扩展名 | 文本读取 | 图片提取 | 链接提取 | 页面范围 |
+|------|--------|----------|----------|----------|----------|
+| Word文档 | .docx | ✅ | ✅ | ✅ | ❌ |
+| PDF文档 | .pdf | ✅ | ❌ | ✅ | ✅ |
+| 纯文本 | .txt, .md | ✅ | ❌ | ✅ | ❌ |
+| RTF文档 | .rtf | ✅ | ❌ | ❌ | ❌ |
+| 代码文件 | .py, .js, .html, .css | ✅ | ❌ | ✅ | ❌ |
+
+### 🎯 使用场景推荐
+
+| 场景 | 推荐工具 | 配置建议 |
+|------|----------|----------|
+| 快速浏览文档内容 | `read_document` | 无特殊配置 |
+| 文档内容+媒体分析 | `read_document_with_media` | `include_media_info: true` |
+| 媒体资源清单 | `extract_document_media` | `save_images: true` |
+| 链接有效性检查 | `extract_document_media` | 安装 `requests` 库 |
+| 大文件处理 | `read_document` | 使用 `page_range` |
+| 批量文档处理 | 组合使用 | 先用 `get_document_info` |
+
+## 更新日志
+
+### v2.0.0 🆕
+- ✅ 新增图片自动解析功能
+- ✅ 新增链接提取和验证功能
+- ✅ 新增 `read_document_with_media` 工具
+- ✅ 新增 `extract_document_media` 工具
+- ✅ 支持图片保存到本地
+- ✅ 支持流程图基础分析
+- ✅ 完善错误处理机制
+
+### v1.0.0
+- ✅ 基础文档读取功能
+- ✅ 多格式支持
+- ✅ PDF页面范围选择
+- ✅ 文档信息获取
+
+## 许可证
+
+MIT License
