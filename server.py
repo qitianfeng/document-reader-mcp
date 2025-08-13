@@ -51,6 +51,13 @@ try:
 except ImportError:
     REQUESTS_AVAILABLE = False
 
+try:
+    import openpyxl
+    import pandas as pd
+    EXCEL_AVAILABLE = True
+except ImportError:
+    EXCEL_AVAILABLE = False
+
 # 图像分析库
 try:
     import cv2
@@ -75,7 +82,7 @@ async def handle_list_tools() -> List[types.Tool]:
     tools = [
         types.Tool(
             name="read_document",
-            description="读取各种格式的文档内容 (Word .docx, PDF, TXT, RTF)",
+            description="读取各种格式的文档内容 (Word .docx, PDF, Excel .xlsx/.xls, TXT, RTF)",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -87,6 +94,10 @@ async def handle_list_tools() -> List[types.Tool]:
                         "type": "string",
                         "description": "可选：PDF页面范围，格式如 '1-5' 或 '1,3,5'",
                         "default": "all"
+                    },
+                    "sheet_name": {
+                        "type": "string",
+                        "description": "可选：Excel工作表名称，不指定则读取所有工作表"
                     }
                 },
                 "required": ["file_path"]
@@ -260,6 +271,263 @@ def read_rtf_file(file_path: str) -> str:
     with open(file_path, 'r', encoding='utf-8') as file:
         rtf_content = file.read()
         return rtf_to_text(rtf_content)
+
+def read_excel_file(file_path: str, sheet_name: str = None) -> str:
+    """读取Excel文件内容"""
+    if not EXCEL_AVAILABLE:
+        raise Exception("openpyxl 和 pandas 库未安装，无法读取 Excel 文件")
+
+    try:
+        # 使用pandas读取Excel文件
+        if sheet_name:
+            df = pd.read_excel(file_path, sheet_name=sheet_name)
+            content = [f"=== 工作表: {sheet_name} ===\n"]
+        else:
+            # 读取所有工作表
+            excel_file = pd.ExcelFile(file_path)
+            content = []
+            
+            for sheet in excel_file.sheet_names:
+                df = pd.read_excel(file_path, sheet_name=sheet)
+                content.append(f"=== 工作表: {sheet} ===")
+                
+                # 转换为字符串格式，保持表格结构
+                if not df.empty:
+                    # 处理空值
+                    df_str = df.fillna('').astype(str)
+                    content.append(df_str.to_string(index=False))
+                else:
+                    content.append("(空工作表)")
+                content.append("")  # 添加空行分隔
+            
+            return "\n".join(content)
+        
+        # 单个工作表的处理
+        if not df.empty:
+            df_str = df.fillna('').astype(str)
+            content.append(df_str.to_string(index=False))
+        else:
+            content.append("(空工作表)")
+            
+        return "\n".join(content)
+        
+    except Exception as e:
+        raise Exception(f"读取Excel文件失败: {str(e)}")
+
+def get_excel_info(file_path: str) -> Dict[str, Any]:
+    """获取Excel文件信息"""
+    if not EXCEL_AVAILABLE:
+        raise Exception("openpyxl 库未安装，无法获取 Excel 文件信息")
+    
+    try:
+        from openpyxl import load_workbook
+        
+        # 获取文件大小
+        file_size = os.path.getsize(file_path)
+        
+        # 加载工作簿
+        wb = load_workbook(file_path, read_only=True)
+        
+        info = {
+            "format": "Excel (.xlsx/.xls)",
+            "file_size": f"{file_size:,} 字节",
+            "sheet_count": len(wb.sheetnames),
+            "sheet_names": wb.sheetnames,
+            "sheets_info": []
+        }
+        
+        # 获取每个工作表的信息
+        for sheet_name in wb.sheetnames:
+            ws = wb[sheet_name]
+            sheet_info = {
+                "name": sheet_name,
+                "max_row": ws.max_row,
+                "max_column": ws.max_column,
+                "dimensions": f"{ws.max_row} 行 × {ws.max_column} 列"
+            }
+            info["sheets_info"].append(sheet_info)
+        
+        wb.close()
+        return info
+        
+    except Exception as e:
+        raise Exception(f"获取Excel文件信息失败: {str(e)}")
+
+def extract_excel_media(file_path: str, extract_images: bool = True, extract_links: bool = True, save_images: bool = False) -> Dict[str, Any]:
+    """从Excel文件中提取图片和链接信息"""
+    if not EXCEL_AVAILABLE:
+        raise Exception("openpyxl 库未安装，无法处理 Excel 文件")
+    
+    from openpyxl import load_workbook
+    from openpyxl.drawing.image import Image as OpenpyxlImage
+    import re
+    
+    result = {"images": [], "links": [], "summary": {}}
+    
+    try:
+        # 加载工作簿
+        wb = load_workbook(file_path, data_only=False)
+        
+        # 提取图片
+        if extract_images:
+            image_count = 0
+            for sheet_name in wb.sheetnames:
+                ws = wb[sheet_name]
+                
+                # 检查工作表中的图片
+                if hasattr(ws, '_images') and ws._images:
+                    for img in ws._images:
+                        try:
+                            image_count += 1
+                            image_info = {
+                                "sheet": sheet_name,
+                                "filename": f"excel_image_{image_count}.{img.format.lower()}",
+                                "format": img.format,
+                                "anchor": str(img.anchor) if hasattr(img, 'anchor') else "未知位置"
+                            }
+                            
+                            # 如果需要保存图片
+                            if save_images and PILLOW_AVAILABLE:
+                                try:
+                                    # 创建保存目录
+                                    save_dir = Path("extracted_images")
+                                    save_dir.mkdir(exist_ok=True)
+                                    
+                                    # 保存图片
+                                    image_path = save_dir / image_info["filename"]
+                                    with open(image_path, 'wb') as f:
+                                        f.write(img._data())
+                                    
+                                    image_info["saved_path"] = str(image_path)
+                                    image_info["file_size"] = len(img._data())
+                                    
+                                    # 获取图片尺寸
+                                    try:
+                                        from PIL import Image
+                                        with Image.open(image_path) as pil_img:
+                                            image_info["dimensions"] = pil_img.size
+                                    except:
+                                        pass
+                                        
+                                except Exception as e:
+                                    image_info["save_error"] = str(e)
+                            
+                            result["images"].append(image_info)
+                            
+                        except Exception as e:
+                            result["images"].append({
+                                "sheet": sheet_name,
+                                "error": f"图片处理失败: {str(e)}"
+                            })
+        
+        # 提取链接
+        if extract_links:
+            url_pattern = re.compile(r'https?://[^\s<>"{}|\\^`\[\]]+')
+            
+            for sheet_name in wb.sheetnames:
+                ws = wb[sheet_name]
+                
+                # 检查单元格中的超链接
+                for row in ws.iter_rows():
+                    for cell in row:
+                        if cell.hyperlink:
+                            try:
+                                link_info = {
+                                    "sheet": sheet_name,
+                                    "cell": f"{cell.coordinate}",
+                                    "url": cell.hyperlink.target,
+                                    "display_text": str(cell.value) if cell.value else "",
+                                    "type": "hyperlink"
+                                }
+                                
+                                # 验证链接有效性
+                                if REQUESTS_AVAILABLE and link_info["url"].startswith(('http://', 'https://')):
+                                    try:
+                                        import requests
+                                        response = requests.head(link_info["url"], timeout=5, allow_redirects=True)
+                                        link_info["status_code"] = response.status_code
+                                        link_info["accessible"] = response.status_code < 400
+                                    except:
+                                        link_info["accessible"] = False
+                                        link_info["status_code"] = "连接失败"
+                                
+                                result["links"].append(link_info)
+                                
+                            except Exception as e:
+                                result["links"].append({
+                                    "sheet": sheet_name,
+                                    "cell": f"{cell.coordinate}",
+                                    "error": f"链接处理失败: {str(e)}"
+                                })
+                        
+                        # 检查单元格文本中的URL
+                        elif cell.value and isinstance(cell.value, str):
+                            urls = url_pattern.findall(str(cell.value))
+                            for url in urls:
+                                try:
+                                    link_info = {
+                                        "sheet": sheet_name,
+                                        "cell": f"{cell.coordinate}",
+                                        "url": url,
+                                        "display_text": str(cell.value),
+                                        "type": "text_url"
+                                    }
+                                    
+                                    # 验证链接有效性
+                                    if REQUESTS_AVAILABLE:
+                                        try:
+                                            import requests
+                                            response = requests.head(url, timeout=5, allow_redirects=True)
+                                            link_info["status_code"] = response.status_code
+                                            link_info["accessible"] = response.status_code < 400
+                                        except:
+                                            link_info["accessible"] = False
+                                            link_info["status_code"] = "连接失败"
+                                    
+                                    result["links"].append(link_info)
+                                    
+                                except Exception as e:
+                                    result["links"].append({
+                                        "sheet": sheet_name,
+                                        "cell": f"{cell.coordinate}",
+                                        "url": url,
+                                        "error": f"链接处理失败: {str(e)}"
+                                    })
+        
+        # 生成摘要
+        result["summary"] = {
+            "image_count": len([img for img in result["images"] if "error" not in img]),
+            "link_count": len([link for link in result["links"] if "error" not in link]),
+            "image_errors": len([img for img in result["images"] if "error" in img]),
+            "link_errors": len([link for link in result["links"] if "error" in link])
+        }
+        
+        wb.close()
+        return result
+        
+    except Exception as e:
+        raise Exception(f"Excel媒体提取失败: {str(e)}")
+
+def read_excel_with_media(file_path: str, sheet_name: str = None) -> Tuple[str, Dict[str, Any]]:
+    """读取Excel文档内容并提取媒体信息"""
+    if not EXCEL_AVAILABLE:
+        raise Exception("openpyxl 和 pandas 库未安装，无法读取 Excel 文件")
+    
+    # 读取文档内容
+    content = read_excel_file(file_path, sheet_name)
+    
+    # 提取媒体信息
+    try:
+        media_data = extract_excel_media(file_path, extract_images=True, extract_links=True, save_images=False)
+        media_info = {
+            "images": media_data.get("images", []),
+            "links": media_data.get("links", []),
+            "summary": media_data.get("summary", {})
+        }
+        return content, media_info
+    except Exception as e:
+        # 如果媒体提取失败，返回空的媒体信息
+        return content, {"images": [], "links": [], "summary": {"error": str(e)}}
 
 def analyze_flowchart_image_from_bytes(image_bytes: bytes) -> dict:
     """分析流程图图片，基于OpenCV的基础结构分析"""
@@ -549,6 +817,13 @@ def get_file_info(file_path: str) -> Dict[str, Any]:
                 info["页数"] = len(pdf_reader.pages)
         except:
             pass
+    
+    elif path.suffix.lower() in ['.xlsx', '.xls'] and EXCEL_AVAILABLE:
+        try:
+            excel_info = get_excel_info(file_path)
+            info.update(excel_info)
+        except:
+            pass
 
     return info
 
@@ -583,6 +858,9 @@ async def handle_call_tool(
                 content = read_docx_file(file_path)
             elif file_ext == '.pdf':
                 content = read_pdf_file(file_path, page_range)
+            elif file_ext in ['.xlsx', '.xls']:
+                sheet_name = arguments.get("sheet_name")
+                content = read_excel_file(file_path, sheet_name)
             elif file_ext in ['.txt', '.md', '.py', '.js', '.html', '.css']:
                 content = read_txt_file(file_path)
             elif file_ext == '.rtf':
@@ -632,6 +910,7 @@ async def handle_call_tool(
         formats = {
             ".docx": "Word文档" + (" ✓" if DOCX_AVAILABLE else " ✗ (需要 python-docx)"),
             ".pdf": "PDF文档" + (" ✓" if PDF_AVAILABLE else " ✗ (需要 PyPDF2)"),
+            ".xlsx/.xls": "Excel文档" + (" ✓" if EXCEL_AVAILABLE else " ✗ (需要 openpyxl, pandas)"),
             ".txt": "纯文本文件 ✓",
             ".md": "Markdown文件 ✓",
             ".rtf": "RTF文档" + (" ✓" if RTF_AVAILABLE else " ✗ (需要 striprtf)"),
@@ -721,6 +1000,63 @@ async def handle_call_tool(
                             result_text += f"{i}. {link['url']}\n"
                             result_text += f"   - 域名: {link.get('domain', '未知')}\n"
                             result_text += f"   - 协议: {link.get('scheme', '未知')}\n"
+                            if "accessible" in link:
+                                status = "可访问" if link["accessible"] else "不可访问"
+                                result_text += f"   - 状态: {status}"
+                                if link.get("status_code"):
+                                    result_text += f" (HTTP {link['status_code']})"
+                                result_text += "\n"
+
+                return [types.TextContent(
+                    type="text",
+                    text=result_text
+                )]
+
+            elif file_ext in ['.xlsx', '.xls']:
+                media_data = extract_excel_media(file_path, extract_images, extract_links, save_images)
+
+                result_text = f"Excel媒体信息 ({path.name}):\n\n"
+
+                # 摘要信息
+                summary = media_data.get("summary", {})
+                result_text += f"摘要:\n"
+                result_text += f"- 图片总数: {summary.get('image_count', 0)}\n"
+                result_text += f"- 链接总数: {summary.get('link_count', 0)}\n"
+                result_text += f"- 图片处理错误: {summary.get('image_errors', 0)}\n"
+                result_text += f"- 链接处理错误: {summary.get('link_errors', 0)}\n\n"
+
+                # 图片信息
+                if extract_images and media_data.get("images"):
+                    result_text += "图片信息:\n"
+                    for i, img in enumerate(media_data["images"], 1):
+                        if "error" in img:
+                            result_text += f"{i}. 错误: {img['error']}\n"
+                        else:
+                            result_text += f"{i}. {img.get('filename', '未知文件名')}\n"
+                            result_text += f"   - 工作表: {img.get('sheet', '未知')}\n"
+                            result_text += f"   - 格式: {img.get('format', '未知')}\n"
+                            result_text += f"   - 位置: {img.get('anchor', '未知')}\n"
+                            if "dimensions" in img:
+                                result_text += f"   - 尺寸: {img['dimensions']}\n"
+                            if "file_size" in img:
+                                result_text += f"   - 大小: {img['file_size']} 字节\n"
+                            if "saved_path" in img:
+                                result_text += f"   - 保存路径: {img['saved_path']}\n"
+                    result_text += "\n"
+
+                # 链接信息
+                if extract_links and media_data.get("links"):
+                    result_text += "链接信息:\n"
+                    for i, link in enumerate(media_data["links"], 1):
+                        if "error" in link:
+                            result_text += f"{i}. 错误: {link['error']}\n"
+                        else:
+                            result_text += f"{i}. {link['url']}\n"
+                            result_text += f"   - 工作表: {link.get('sheet', '未知')}\n"
+                            result_text += f"   - 单元格: {link.get('cell', '未知')}\n"
+                            result_text += f"   - 类型: {link.get('type', '未知')}\n"
+                            if link.get('display_text'):
+                                result_text += f"   - 显示文本: {link['display_text'][:50]}{'...' if len(link['display_text']) > 50 else ''}\n"
                             if "accessible" in link:
                                 status = "可访问" if link["accessible"] else "不可访问"
                                 result_text += f"   - 状态: {status}"
@@ -919,6 +1255,46 @@ async def handle_call_tool(
                             text=f"文档内容 ({path.name}):\n\n{content}"
                         )]
                 else:
+                    return [types.TextContent(
+                        type="text",
+                        text=f"文档内容 ({path.name}):\n\n{content}"
+                    )]
+
+            elif file_ext in ['.xlsx', '.xls']:
+                sheet_name = arguments.get("sheet_name")
+                
+                if include_media_info:
+                    content, media_info = read_excel_with_media(file_path, sheet_name)
+
+                    result_text = f"文档内容 ({path.name}):\n\n{content}\n\n"
+
+                    # 添加媒体信息
+                    if "error" not in media_info.get("summary", {}):
+                        summary = media_info.get("summary", {})
+                        result_text += "=== 媒体信息 ===\n"
+                        result_text += f"图片数量: {summary.get('image_count', 0)}\n"
+                        result_text += f"链接数量: {summary.get('link_count', 0)}\n"
+
+                        if media_info.get("images"):
+                            result_text += "\n图片列表:\n"
+                            for i, img in enumerate(media_info["images"], 1):
+                                if "error" not in img:
+                                    result_text += f"{i}. {img.get('filename', '未知')} ({img.get('format', '未知')}, 工作表: {img.get('sheet', '未知')})\n"
+
+                        if media_info.get("links"):
+                            result_text += "\n链接列表:\n"
+                            for i, link in enumerate(media_info["links"], 1):
+                                if "error" not in link:
+                                    result_text += f"{i}. {link['url']} (工作表: {link.get('sheet', '未知')}, 单元格: {link.get('cell', '未知')})\n"
+                    else:
+                        result_text += f"媒体信息提取错误: {media_info.get('summary', {}).get('error', '未知错误')}\n"
+
+                    return [types.TextContent(
+                        type="text",
+                        text=result_text
+                    )]
+                else:
+                    content = read_excel_file(file_path, sheet_name)
                     return [types.TextContent(
                         type="text",
                         text=f"文档内容 ({path.name}):\n\n{content}"

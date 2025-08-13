@@ -89,7 +89,7 @@ python test_core_features.py
 
 ## ✨ 核心功能
 
-- **多格式文档读取**: 支持 Word (.docx)、PDF、文本文件、RTF 等格式
+- **多格式文档读取**: 支持 Word (.docx)、PDF、Excel (.xlsx/.xls)、文本文件、RTF 等格式
 - **图片提取与分析**: 自动提取文档中的图片并进行结构分析
 - **图表内容理解**: 基于 OpenCV 分析流程图、架构图等技术图表
 - **媒体信息提取**: 提取文档中的图片和链接信息
@@ -211,6 +211,27 @@ MIT License: {
   "arguments": {
     "file_path": "document.pdf",
     "page_range": "1-5"
+  }
+}
+```
+
+#### 读取Excel文档
+```json
+{
+  "tool": "read_document",
+  "arguments": {
+    "file_path": "data.xlsx"
+  }
+}
+```
+
+#### 读取Excel特定工作表
+```json
+{
+  "tool": "read_document",
+  "arguments": {
+    "file_path": "data.xlsx",
+    "sheet_name": "Sheet1"
   }
 }
 ```
@@ -549,7 +570,7 @@ Kiro会自动调用 `read_document_with_media` 工具。
 pip install -r requirements.txt
 
 # 或单独安装
-pip install mcp python-docx PyPDF2 striprtf Pillow requests
+pip install mcp python-docx PyPDF2 striprtf Pillow requests openpyxl pandas
 ```
 
 ## 快速参考
@@ -570,6 +591,7 @@ pip install mcp python-docx PyPDF2 striprtf Pillow requests
 |------|--------|----------|----------|----------|----------|
 | Word文档 | .docx | ✅ | ✅ | ✅ | ❌ |
 | PDF文档 | .pdf | ✅ | ❌ | ✅ | ✅ |
+| Excel文档 | .xlsx, .xls | ✅ | ✅ | ✅ | ❌ |
 | 纯文本 | .txt, .md | ✅ | ❌ | ✅ | ❌ |
 | RTF文档 | .rtf | ✅ | ❌ | ❌ | ❌ |
 | 代码文件 | .py, .js, .html, .css | ✅ | ❌ | ✅ | ❌ |
@@ -587,7 +609,14 @@ pip install mcp python-docx PyPDF2 striprtf Pillow requests
 
 ## 更新日志
 
-### v2.0.0 🆕
+### v2.1.0 🆕
+- ✅ 新增Excel文档支持 (.xlsx/.xls)
+- ✅ Excel图片提取功能
+- ✅ Excel链接提取和验证功能
+- ✅ Excel工作表信息获取
+- ✅ 支持指定工作表读取
+
+### v2.0.0
 - ✅ 新增图片自动解析功能
 - ✅ 新增链接提取和验证功能
 - ✅ 新增 `read_document_with_media` 工具
